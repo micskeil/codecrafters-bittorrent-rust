@@ -66,6 +66,42 @@ pub fn decode_list(encoded_list: &str) -> Result<DecodedValue, String> {
   })
 }
 
+pub fn decode_dictionary(encoded_dictionary: &str) -> Result<DecodedValue, String> {
+  let mut to_encode = &encoded_dictionary[1..encoded_dictionary.len()-1];
+  let mut dictionary: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+
+  while to_encode.len() > 0 {
+    if to_encode.starts_with("e") {
+      to_encode = &to_encode[1..];
+      break;
+    }
+    decode(to_encode).map(|decoded_key| {
+      to_encode = &to_encode[decoded_key.encoded.len()..];
+      let key = decoded_key.value.as_str().ok_or_else(|| {
+        format!("Dictionary key is not a string: {}", decoded_key.value)
+      });
+
+      let value = decode(to_encode).map(|decoded_value| {
+        to_encode = &to_encode[decoded_value.encoded.len()..];
+        decoded_value.value
+      }).map_err(|err| {
+        format!("Error decoding dictionary value: {}", err)
+      });
+
+      dictionary.insert(key.unwrap().to_string(), value.unwrap());
+    }).map_err(|err| {
+      format!("Error decoding dictionary key: {}", err)
+    })?;
+  }
+
+  // Calculate the encoded value
+  let encoded: String = encoded_dictionary[..encoded_dictionary.len()-to_encode.len()-1].to_string();
+  Ok(DecodedValue {
+    encoded,
+    value: serde_json::Value::Object(dictionary),
+  })
+}
+
 pub fn decode(encoded_value: &str) -> Result<DecodedValue, String> {
   if encoded_value.chars().next().unwrap().is_digit(10) {
     return decode_string(encoded_value);
@@ -75,6 +111,9 @@ pub fn decode(encoded_value: &str) -> Result<DecodedValue, String> {
   }
   if encoded_value.chars().next().unwrap() == 'l' {
     return decode_list(encoded_value);
+  }
+  if encoded_value.chars().next().unwrap() == 'd' {
+    return decode_dictionary(encoded_value);
   }
   Err(format!("Unhandled encoded value: {}", encoded_value))
 }
