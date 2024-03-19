@@ -1,7 +1,6 @@
 mod decode;
 use serde_json;
 use std::env;
-
 use decode::decode;
 
 #[allow(dead_code)]
@@ -19,10 +18,18 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let command = &args[1];
 
+    let valid_commands = vec!["decode", "info"];
+    if !valid_commands.contains(&command.as_str()) {
+        println!("Invalid command: {}", command);
+        return;
+    }
+
     if command == "decode" {
         let decoded_value = decode_bencoded_value(&args[2]);
         println!("{}", decoded_value.to_string());
-    } else {
-        println!("unknown command: {}", args[1])
+    }
+
+    if command == "info" {
+        println!("Not implemented yet");
     }
 }
