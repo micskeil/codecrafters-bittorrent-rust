@@ -113,6 +113,11 @@ pub fn decode(bytes: &[u8]) -> Result<serde_json::Value, String> {
         return Ok(serde_json::Value::Number(serde_json::Number::from(string)));
     }
 
+    if bytes[0].is_ascii_digit() {
+        let string = String::from_utf8_lossy(&decode_string(&bytes).unwrap().value).to_string();
+        return Ok(serde_json::Value::String(string));
+    }
+
     // if encoded_string.chars().next().unwrap().is_digit(10) {
     //     return decode_string(&bytes);
     // }
