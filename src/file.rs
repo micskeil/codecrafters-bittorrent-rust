@@ -49,7 +49,7 @@ pub fn file_contents(path: &str) -> anyhow::Result<Torrent> {
             length: info.get("length").expect("expected length").as_u64().expect("expected u64") as usize,
             name: info.get("name").expect("expected name").as_str().expect("expected string").to_string(),
             piece_length: info.get("piece length").expect("expected piece length").as_u64().expect("expected u64") as usize,
-            pieces: info.get("pieces").expect("expected pieces").as_array().expect("expected array").iter().map(|x| x.as_u64().expect("expected u64") as u8).collect()
+            pieces: info.get("pieces").expect("expected pieces").as_str().expect("expected string").as_bytes().to_vec(),
         }
     })
 }
