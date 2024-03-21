@@ -2,19 +2,29 @@
 use anyhow::ensure;
 use crate::decode;
 use std::io::Read;
+use serde_bytes::ByteBuf;
+use serde::{Deserialize, Serialize};
 
 #[allow(dead_code)]
-pub struct Info {
-    pub(crate) length: usize,
-    pub(crate) name: String,
-    pub(crate) piece_length: usize,
-    pieces: String,
+
+#[derive(Debug)]
+pub struct Torrent {
+    pub announcement: String,
+    pub info: TorrentInfo
 }
-pub struct FileData {
-    pub(crate) announcement: String,
-    pub(crate) info: Info,
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TorrentInfo {
+    pub length: usize,
+    name: String,
+    #[serde(rename = "piece length")]
+    piece_length: usize,
+    pieces: ByteBuf,
 }
-pub fn file_contents(path: &str) -> anyhow::Result<FileData> {
+
+
+
+pub fn file_contents(path: &str) -> anyhow::Result<Torrent> {
     let path = std::path::Path::new((&path).into());
     ensure!(path.is_file(), "Info only works on files");
 
@@ -31,47 +41,15 @@ pub fn file_contents(path: &str) -> anyhow::Result<FileData> {
     let binding: decode::DecodedValue = decode(&string_data).unwrap();
 
     let data = binding.value.as_object().expect("expected object");
-    let info = data
-        .get("info")
-        .expect("expected info")
-        .as_object()
-        .unwrap();
-    let length = info
-        .get("length")
-        .unwrap()
-        .as_u64()
-        .expect("expected length") as usize;
-    let name = info
-        .get("name")
-        .unwrap()
-        .as_str()
-        .expect("expected name")
-        .to_owned();
-    let piece_length = info
-        .get("piece length")
-        .expect("expected piece length")
-        .as_u64()
-        .expect("expected conversion to u64") as usize;
-    let pieces = info
-        .get("pieces")
-        .expect("expected pieces")
-        .as_str()
-        .expect("as an str")
-        .to_owned();
-    let info_val = Info {
-        length,
-        name,
-        piece_length,
-        pieces,
-    };
-    let announce = data
-        .get("announce")
-        .expect("expected key 'announce'")
-        .as_str()
-        .expect("expected key 'announce' to as_str")
-        .to_owned();
-    Ok(FileData {
-        announcement: announce,
-        info: info_val,
+    let info: &serde_json::Map<String, serde_json::Value> = data.get("info").expect("expected info").as_object().expect("expected object");
+
+    Ok(Torrent {
+        announcement: data.get("announce").expect("expected announce").as_str().expect("expected string").to_string(),
+        info: TorrentInfo {
+            length: info.get("length").expect("expected length").as_u64().expect("expected u64") as usize,
+            name: info.get("name").expect("expected name").as_str().expect("expected string").to_string(),
+            piece_length: info.get("piece length").expect("expected piece length").as_u64().expect("expected u64") as usize,
+            pieces: ByteBuf::from(info.get("pieces").expect("expected pieces").as_str().expect("expected string").as_bytes())
+        }
     })
 }

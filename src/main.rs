@@ -3,7 +3,8 @@ mod file;
 use serde_json;
 use std::env;
 use decode::decode;
-use file::FileData;
+use file::{Torrent};
+use sha1::Digest;
 
 #[allow(dead_code)]
 fn decode_bencoded_value(encoded_value: &str) -> serde_json::Value {
@@ -14,6 +15,7 @@ fn decode_bencoded_value(encoded_value: &str) -> serde_json::Value {
         panic!("Error decoding value: {}", err)
     })
 }
+
 
 // Usage: your_bittorrent.sh decode "<encoded_value>"
 fn main() {
@@ -32,10 +34,16 @@ fn main() {
     }
 
     if command == "info" {
-        let contents: FileData = file::file_contents(&args[2]).expect("expected FileData");
+        let torrent: Torrent = file::file_contents(&args[2]).expect("expected FileData");
+
+        let mut hasher = sha1::Sha1::new();
+        let encoded_info = serde_bencode::to_bytes(&torrent.info).unwrap();
+        hasher.update(encoded_info);
+        let hashed_info = hasher.finalize();
+
         println!(
-            "Tracker URL: {}\nLength: {}",
-            contents.announcement, contents.info.length
+            "Tracker URL: {}\nLength: {} \nInfo Hash: {:x}" ,
+            torrent.announcement, torrent.info.length, hashed_info
         );
     }
 }
