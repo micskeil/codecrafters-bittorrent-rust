@@ -13,14 +13,17 @@ pub fn decode_string(encoded_string: &str) -> Result<DecodedValue, String> {
         format!("Invalid encoded string, length is not a number: {}", encoded_string)
     })?;
 
-    // find the end index of the string
-    let end_index = colon_index + length + 1 ;
-    // get the value of the string
-    let value = &encoded_string[colon_index + 1 ..end_index ];
+    let characters = encoded_string[colon_index+1..].chars();
+
+    let value = characters.take(length).collect::<String>();
+
+
+    // find the end index of the string, where the characters
+    let end_index: usize = colon_index + 1 + value.len();
 
     Ok(DecodedValue {
         encoded: encoded_string[..end_index].to_string(),
-        value: serde_json::Value::String(value.to_string()),
+        value: serde_json::Value::String(value),
     })
 }
 
@@ -71,25 +74,25 @@ pub fn decode_dictionary(encoded_dictionary: &str) -> Result<DecodedValue, Strin
 
     while to_encode.len() > 0 {
         if to_encode.starts_with("e") {
-        to_encode = &to_encode[1..];
-        break;
+            to_encode = &to_encode[1..];
+            break;
         }
         decode(to_encode).map(|decoded_key| {
-        to_encode = &to_encode[decoded_key.encoded.len()..];
-        let key = decoded_key.value.as_str().ok_or_else(|| {
-            format!("Dictionary key is not a string: {}", decoded_key.value)
-        });
+            to_encode = &to_encode[decoded_key.encoded.len()..];
+            let key = decoded_key.value.as_str().ok_or_else(|| {
+                format!("Dictionary key is not a string: {}", decoded_key.value)
+            });
 
-        let value = decode(to_encode).map(|decoded_value| {
-            to_encode = &to_encode[decoded_value.encoded.len()..];
-            decoded_value.value
-        }).map_err(|err| {
-            format!("Error decoding dictionary value: {}", err)
-        });
+            let value = decode(to_encode).map(|decoded_value: DecodedValue| {
+                to_encode = &to_encode[decoded_value.encoded.len()..];
+                decoded_value.value
+            }).map_err(|err| {
+                format!("Error decoding dictionary value: {}", err)
+            });
 
-        dictionary.insert(key.unwrap().to_string(), value.unwrap());
+            dictionary.insert(key.unwrap().to_string(), value.unwrap());
         }).map_err(|err| {
-        format!("Error decoding dictionary key: {}", err)
+            format!("Could not insert to the dictionary: {}", err)
         })?;
     }
 
@@ -114,7 +117,6 @@ pub fn decode(encoded_value: &str) -> Result<DecodedValue, String> {
     if encoded_value.chars().next().unwrap() == 'd' {
         return decode_dictionary(encoded_value);
     }
-
     // If the encoded value is not a string, number, list, or dictionary, return an error
     Err(format!("Unhandled encoded value: {}", encoded_value))
 }

@@ -1,7 +1,9 @@
 mod decode;
+mod file;
 use serde_json;
 use std::env;
 use decode::decode;
+use file::FileData;
 
 #[allow(dead_code)]
 fn decode_bencoded_value(encoded_value: &str) -> serde_json::Value {
@@ -18,8 +20,8 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let command = &args[1];
 
-    let valid_commands = vec!["decode", "info"];
-    if !valid_commands.contains(&command.as_str()) {
+    const VALID_COMMANDS: [&str; 2] = ["decode", "info"];
+    if !VALID_COMMANDS.contains(&command.as_str()) {
         println!("Invalid command: {}", command);
         return;
     }
@@ -30,6 +32,10 @@ fn main() {
     }
 
     if command == "info" {
-        println!("Not implemented yet");
+        let contents: FileData = file::file_contents(&args[2]).expect("expected FileData");
+        println!(
+            "Tracker URL: {}\nLength: {}",
+            contents.announcement, contents.info.length
+        );
     }
 }
