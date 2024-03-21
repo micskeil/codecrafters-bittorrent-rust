@@ -3,17 +3,13 @@ mod file;
 use serde_json;
 use std::env;
 use decode::decode;
-use file::{Torrent};
+use serde_bencode;
+use file::Torrent;
 use sha1::Digest;
 
 #[allow(dead_code)]
-fn decode_bencoded_value(encoded_value: &str) -> serde_json::Value {
-    // If encoded_value starts with a digit, it's a number
-    decode(encoded_value).map(|decoded_value| {
-        decoded_value.value
-    }).unwrap_or_else(|err| {
-        panic!("Error decoding value: {}", err)
-    })
+fn decode_bencoded_value(encoded_value: &[u8]) -> serde_json::Value {
+    decode(encoded_value).unwrap()
 }
 
 
@@ -28,17 +24,21 @@ fn main() {
         return;
     }
 
+
     if command == "decode" {
-        let decoded_value = decode_bencoded_value(&args[2]);
-        println!("{}", decoded_value.to_string());
+        // turn string to bytes [u8]
+        let encoded_value = &args[2].as_bytes();
+        let decoded_value: serde_json::Value = decode_bencoded_value(encoded_value);
+        println!("{:?}", decoded_value);
     }
 
     if command == "info" {
         let torrent: Torrent = file::file_contents(&args[2]).expect("expected FileData");
 
         let mut hasher = sha1::Sha1::new();
-        let encoded_info = serde_bencode::to_bytes(&torrent.info).unwrap();
-        hasher.update(encoded_info);
+        let encoded_info = serde_bencode::to_string(&torrent.info).unwrap();
+        println!("{:?}", encoded_info);
+
         let hashed_info = hasher.finalize();
 
         println!(

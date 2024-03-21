@@ -34,22 +34,26 @@ pub fn file_contents(path: &str) -> anyhow::Result<Torrent> {
     ensure!(size > 0, format!("file {:?} is empty", &path));
     ensure!(buffer.len() == size, format!("buffer is not {size} long"));
 
-    // Convert buffer to String
-    let string_data = String::from_utf8_lossy(&buffer);
+    let string_data: Vec<u8> = buffer;
+    unimplemented!("decode the string data");
+    // let binding: decode::DecodedValue = decode(&string_data).unwrap();
+
+    // let data = binding.value.as_object().expect("expected object");
+    // let info: &serde_json::Map<String, serde_json::Value> = data.get("info").expect("expected info").as_object().expect("expected object");
+
+    // let pieces = info.get("pieces").expect("expected pieces").as_str().expect("expected string").as_bytes().to_vec();
+    // println!("pieces: {:?}", pieces.len());
+
+    // let torrent_info = TorrentInfo {
+    //     length: info.get("length").expect("expected length").as_u64().expect("expected u64") as usize,
+    //     name: info.get("name").expect("expected name").as_str().expect("expected string").to_string(),
+    //     piece_length: info.get("piece length").expect("expected piece length").as_u64().expect("expected u64") as usize,
+    //     pieces: info.get("pieces").expect("expected pieces").as_str().expect("expected string").as_bytes().to_vec()
+    // };
 
 
-    let binding: decode::DecodedValue = decode(&string_data).unwrap();
-
-    let data = binding.value.as_object().expect("expected object");
-    let info: &serde_json::Map<String, serde_json::Value> = data.get("info").expect("expected info").as_object().expect("expected object");
-
-    Ok(Torrent {
-        announcement: data.get("announce").expect("expected announce").as_str().expect("expected string").to_string(),
-        info: TorrentInfo {
-            length: info.get("length").expect("expected length").as_u64().expect("expected u64") as usize,
-            name: info.get("name").expect("expected name").as_str().expect("expected string").to_string(),
-            piece_length: info.get("piece length").expect("expected piece length").as_u64().expect("expected u64") as usize,
-            pieces: info.get("pieces").expect("expected pieces").as_str().expect("expected string").as_bytes().to_vec(),
-        }
-    })
+    // Ok(Torrent {
+    //     announcement: data.get("announce").expect("expected announce").as_str().expect("expected string").to_string(),
+    //     info: torrent_info
+    // })
 }

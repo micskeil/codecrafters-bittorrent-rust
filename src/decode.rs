@@ -1,122 +1,130 @@
+use std::str::FromStr;
 pub struct DecodedValue {
-  // length: i64,
-  encoded: String,
-  pub value: serde_json::Value,
+  encoded: Vec<u8>,
+  pub value: Vec<u8>,
 }
 
-pub fn decode_string(encoded_string: &str) -> Result<DecodedValue, String> {
-    let colon_index = encoded_string.find(':').ok_or_else(|| {
-        format!("Invalid encoded string, missing semicolon: {}", encoded_string)
+
+pub fn decode_string(bytes: &[u8]) -> Result<DecodedValue, String> {
+    // find the index of the colon
+    let colon_index: usize = bytes.iter().position(|&x| x == b':').ok_or_else(|| {
+        format!("Invalid encoded string, no colon: {:?}", bytes)
     })?;
 
-    let length: usize = encoded_string[..colon_index].parse::<usize>().map_err(|_| {
-        format!("Invalid encoded string, length is not a number: {}", encoded_string)
+    // get the length of the string
+    let indicated_length = &bytes[..colon_index].iter().map(|&x| x as char).collect::<String>();
+    let length = i64::from_str(indicated_length).map_err(|err| {
+        format!("Error parsing number: {}", err)
     })?;
 
-    let characters = encoded_string[colon_index+1..].chars();
+    // get the string value from the bytes
+    let value = &bytes[colon_index + 1..colon_index + 1 + length as usize].to_vec();
 
-    let value = characters.take(length).collect::<String>();
 
 
     // find the end index of the string, where the characters
     let end_index: usize = colon_index + 1 + value.len();
+    let encoded = bytes[..end_index].to_vec();
 
-    Ok(DecodedValue {
-        encoded: encoded_string[..end_index].to_string(),
-        value: serde_json::Value::String(value),
-    })
+    return Ok(DecodedValue {
+        encoded,
+        value: value.to_owned(),
+    });
 }
 
-pub fn decode_number(encoded_number: &str) -> Result<DecodedValue, String> {
-  let end_index = encoded_number.find('e').ok_or_else(|| {
-        format!("Invalid encoded number, missing e: {}", encoded_number)
+pub fn decode_number(bytes: &[u8]) -> Result<DecodedValue, String> {
+    // find the element with value 'e' and get the index
+    let end_index: usize = bytes.iter().position(|&x| x == b'e').ok_or_else(|| {
+        format!("Invalid encoded number, no end character: {:?}", bytes)
     })?;
 
-    let number_string = &encoded_number[1..end_index];
-    let number = number_string.parse::<i64>().map_err(|_| {
-        format!("Invalid encoded number, number is not a number: {}", encoded_number)
-    })?;
+    let number = &bytes[1..end_index].to_vec();
+    let encoded_number = bytes[..end_index + 1].to_vec();
 
     Ok(DecodedValue {
-        encoded: encoded_number[..end_index + 1].to_string(),
-        value: serde_json::Value::Number(serde_json::Number::from(number)),
+        encoded: encoded_number,
+        value: number.to_owned(),
     })
 }
 
-pub fn decode_list(encoded_list: &str) -> Result<DecodedValue, String> {
-    let mut to_encode = &encoded_list[1..encoded_list.len()-1];
-    let mut list: Vec<serde_json::Value> = Vec::new();
+// pub fn decode_list(bytes: &[u8]) -> Result<DecodedValue, String> {
+//     let encoded_string = String::from_utf8_lossy(bytes);
+//     let mut to_encode = &encoded_string[1..encoded_string.len()-1];
 
-    while to_encode.len() > 0 {
-        if to_encode.starts_with("e") {
-        to_encode = &to_encode[1..];
-        break;
-        }
-        decode(to_encode).map(|decoded_value| {
-        list.push(decoded_value.value);
-        to_encode = &to_encode[decoded_value.encoded.len()..];
-        }).map_err(|err| {
-        format!("Error decoding list: {}", err)
-        })?;
+//     let mut list: Vec<serde_json::Value> = Vec::new();
+//     while to_encode.len() > 0 {
+//         if to_encode.starts_with("e") {
+//         to_encode = &to_encode[1..];
+//         break;
+//         }
+
+//         to_encode.
+//         decode(to_encode).map(|decoded_value| {
+//         list.push(decoded_value.value);
+//         to_encode = &to_encode[decoded_value.encoded.len()..];
+//         }).map_err(|err| {
+//         format!("Error decoding list: {}", err)
+//         })?;
+//     }
+//     // Calculate the encoded value
+//     let encoded: String = encoded_list[..encoded_list.len()-to_encode.len()-1].to_string();
+//     Ok(DecodedValue {
+//         encoded,
+//         value: serde_json::Value::Array(list),
+//     });
+// }
+
+// pub fn decode_dictionary(encoded_value: &[u8]) -> Result<DecodedValue, String> {
+//     let mut to_encode = &encoded_dictionary[1..encoded_dictionary.len()-1];
+//     let mut dictionary: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+//     while to_encode.len() > 0 {
+//         if to_encode.starts_with("e") {
+//             to_encode = &to_encode[1..];
+//             break;
+//         }
+//         decode(to_encode).map(|decoded_key| {
+//             to_encode = &to_encode[decoded_key.encoded.len()..];
+//             let key = decoded_key.value.as_str().ok_or_else(|| {
+//                 format!("Dictionary key is not a string: {}", decoded_key.value)
+//             });
+//             let value = decode(to_encode).map(|decoded_value: DecodedValue| {
+//                 to_encode = &to_encode[decoded_value.encoded.len()..];
+//                 decoded_value.value
+//             }).map_err(|err| {
+//                 format!("Error decoding dictionary value: {}", err)
+//             });
+//             dictionary.insert(key.unwrap().to_string(), value.unwrap());
+//         }).map_err(|err| {
+//             format!("Could not insert to the dictionary: {}", err)
+//         })?;
+//     }
+
+//     // Calculate the encoded value
+//     let encoded: String = encoded_dictionary[..encoded_dictionary.len()-to_encode.len()-1].to_string();
+//     Ok(DecodedValue {
+//         encoded,
+//         value: serde_json::Value::Object(dictionary),
+//     })
+// }
+
+pub fn decode(bytes: &[u8]) -> Result<serde_json::Value, String> {
+    if bytes[0] == b'i' {
+        let string = String::from_utf8_lossy(&decode_number(&bytes).unwrap().value).to_string().parse::<i64>().unwrap();
+        return Ok(serde_json::Value::Number(serde_json::Number::from(string)));
     }
 
-    // Calculate the encoded value
-    let encoded: String = encoded_list[..encoded_list.len()-to_encode.len()-1].to_string();
-    Ok(DecodedValue {
-        encoded,
-        value: serde_json::Value::Array(list),
-    })
-}
+    // if encoded_string.chars().next().unwrap().is_digit(10) {
+    //     return decode_string(&bytes);
+    // }
+    // if encoded_string.chars().next().unwrap() == 'i' {
+    //     return decode_number(&bytes);
+    // }
+    // if encoded_value_as_string.chars().next().unwrap() == 'l' {
+    //     return decode_list(encoded_value);
+    // }
+    // if encoded_value_as_string.chars().next().unwrap() == 'd' {
+    //     return decode_dictionary(encoded_value);
+    // }
 
-pub fn decode_dictionary(encoded_dictionary: &str) -> Result<DecodedValue, String> {
-    let mut to_encode = &encoded_dictionary[1..encoded_dictionary.len()-1];
-    let mut dictionary: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
-
-    while to_encode.len() > 0 {
-        if to_encode.starts_with("e") {
-            to_encode = &to_encode[1..];
-            break;
-        }
-        decode(to_encode).map(|decoded_key| {
-            to_encode = &to_encode[decoded_key.encoded.len()..];
-            let key = decoded_key.value.as_str().ok_or_else(|| {
-                format!("Dictionary key is not a string: {}", decoded_key.value)
-            });
-
-            let value = decode(to_encode).map(|decoded_value: DecodedValue| {
-                to_encode = &to_encode[decoded_value.encoded.len()..];
-                decoded_value.value
-            }).map_err(|err| {
-                format!("Error decoding dictionary value: {}", err)
-            });
-
-            dictionary.insert(key.unwrap().to_string(), value.unwrap());
-        }).map_err(|err| {
-            format!("Could not insert to the dictionary: {}", err)
-        })?;
-    }
-
-    // Calculate the encoded value
-    let encoded: String = encoded_dictionary[..encoded_dictionary.len()-to_encode.len()-1].to_string();
-    Ok(DecodedValue {
-        encoded,
-        value: serde_json::Value::Object(dictionary),
-    })
-}
-
-pub fn decode(encoded_value: &str) -> Result<DecodedValue, String> {
-    if encoded_value.chars().next().unwrap().is_digit(10) {
-        return decode_string(encoded_value);
-    }
-    if encoded_value.chars().next().unwrap() == 'i' {
-        return decode_number(encoded_value);
-    }
-    if encoded_value.chars().next().unwrap() == 'l' {
-        return decode_list(encoded_value);
-    }
-    if encoded_value.chars().next().unwrap() == 'd' {
-        return decode_dictionary(encoded_value);
-    }
-    // If the encoded value is not a string, number, list, or dictionary, return an error
-    Err(format!("Unhandled encoded value: {}", encoded_value))
+    Err(format!("Unhandled encoded value: {:?}", String::from_utf8(vec![bytes[0]]).unwrap()))
 }
